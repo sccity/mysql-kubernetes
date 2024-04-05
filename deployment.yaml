@@ -1,0 +1,65 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: db
+spec:
+  selector:
+    matchLabels:
+      app: db
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: db
+    spec:
+      containers:
+      - image: mysql:8.3.0
+        name: db
+        env:
+        - name: MYSQL_ROOT_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: db-secret
+              key: password
+        ports:
+        - containerPort: 3306
+          name: db
+        volumeMounts:
+        - name: db-storage
+          mountPath: /var/lib/mysql
+        resources:
+          requests:
+            memory: 512M
+            cpu: 250m
+          limits:
+            memory: 1Gi
+            cpu: 500m
+        readinessProbe:
+          tcpSocket:
+            port: 3306
+          initialDelaySeconds: 10
+          timeoutSeconds: 5
+          periodSeconds: 10
+          failureThreshold: 3
+        livenessProbe:
+          tcpSocket:
+            port: 3306
+          initialDelaySeconds: 15
+          timeoutSeconds: 5
+          periodSeconds: 20
+          failureThreshold: 3
+      volumes:
+      - name: db-storage
+        persistentVolumeClaim:
+          claimName: db-data
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: db
+spec:
+  ports:
+  - port: 3306
+  selector:
+    app: db
